@@ -42,6 +42,15 @@ function App() {
               rel="noreferrer"
             >
               GitHub
+            </a>{" "}
+            |{" "}
+            <a
+              className="text-blue-600 hover:underline"
+              href="https://medium.com/@yashrajpahwa"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Medium
             </a>
           </p>
         </header>
