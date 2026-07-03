@@ -1,15 +1,6 @@
-import { FaGithub, FaLinkedin, FaXTwitter } from "react-icons/fa6";
-import { Mail, FileText } from "lucide-react";
-
-const socials = [
-  { href: "https://github.com/yashrajpahwa", label: "GitHub", icon: FaGithub },
-  { href: "https://linkedin.com/in/yashrajpahwa", label: "LinkedIn", icon: FaLinkedin },
-  { href: "https://twitter.com/yashrajpahwa", label: "Twitter", icon: FaXTwitter },
-  { href: "mailto:pahwayashraj@gmail.com", label: "Email", icon: Mail },
-];
-
-const iconLinkClass =
-  "inline-flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors duration-150 ease-out hover:bg-accent hover:text-bg";
+import { FileText } from "lucide-react";
+import IconLink from "@/components/IconLink";
+import { socials } from "@/data/socials";
 
 export default function Footer() {
   return (
@@ -18,28 +9,22 @@ export default function Footer() {
         <p className="text-muted font-mono text-xs">
           © {new Date().getFullYear()} Yashraj Singh Pahwa
         </p>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center -mr-2">
           {socials.map(({ href, label, icon: Icon }) => (
-            <a
+            <IconLink
               key={label}
               href={href}
-              target={href.startsWith("http") ? "_blank" : undefined}
-              rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
-              aria-label={label}
-              className={iconLinkClass}
-            >
-              <Icon size={15} />
-            </a>
+              label={label}
+              icon={Icon}
+              external={href.startsWith("http")}
+            />
           ))}
-          <a
+          <IconLink
             href="/Resume_Yashraj_Pahwa.pdf"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Resume"
-            className={iconLinkClass}
-          >
-            <FileText size={15} strokeWidth={1.5} />
-          </a>
+            label="Resume"
+            icon={FileText}
+            strokeWidth={1.5}
+          />
         </div>
       </div>
     </footer>

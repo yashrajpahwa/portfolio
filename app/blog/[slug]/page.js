@@ -4,6 +4,7 @@ import { MDXRemote } from "next-mdx-remote/rsc";
 import rehypePrettyCode from "rehype-pretty-code";
 import remarkGfm from "remark-gfm";
 import { getHostedSlugs, getPostBySlug } from "@/lib/blog";
+import { formatDate } from "@/lib/utils";
 
 export async function generateStaticParams() {
   return getHostedSlugs().map((slug) => ({ slug }));
@@ -16,14 +17,6 @@ export async function generateMetadata({ params }) {
     title: post.title,
     description: post.excerpt,
   };
-}
-
-function formatDate(date) {
-  return new Date(date).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
 }
 
 const mdxOptions = {
@@ -59,7 +52,7 @@ export default async function BlogPost({ params }) {
 
         <div className="border-t border-border mt-6 mb-8" />
 
-        <div className="prose-blog text-text leading-relaxed space-y-5 [&_h2]:text-lg [&_h2]:font-medium [&_h2]:mt-8 [&_h2]:mb-2 [&_p]:text-text [&_a]:text-accent [&_a]:underline [&_a]:underline-offset-4 [&_code]:font-mono [&_code]:text-sm [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:p-4 [&_pre]:text-sm [&_pre]:bg-surface [&_pre]:border [&_pre]:border-border">
+        <div className="prose-blog">
           <MDXRemote source={post.content} options={mdxOptions} />
         </div>
       </article>

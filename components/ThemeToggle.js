@@ -21,9 +21,22 @@ export default function ThemeToggle() {
       type="button"
       onClick={() => setTheme(isDark ? "light" : "dark")}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors duration-150 ease-out hover:bg-accent hover:text-bg"
+      className="group relative inline-flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors duration-150 ease-out hover:text-accent focus-visible:text-accent"
     >
-      {isDark ? <Sun size={15} strokeWidth={1.5} /> : <Moon size={15} strokeWidth={1.5} />}
+      <span className="absolute inset-0 scale-75 rounded-full border border-accent-dim opacity-0 transition-all duration-300 ease-out group-hover:scale-100 group-hover:opacity-100" />
+      {isDark ? (
+        <Sun
+          size={15}
+          strokeWidth={1.5}
+          className="relative transition-transform duration-500 ease-out group-hover:rotate-90"
+        />
+      ) : (
+        <Moon
+          size={15}
+          strokeWidth={1.5}
+          className="relative transition-transform duration-300 ease-out group-hover:-rotate-[20deg]"
+        />
+      )}
     </button>
   );
 }

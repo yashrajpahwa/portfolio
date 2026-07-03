@@ -1,21 +1,6 @@
 import Link from "next/link";
-import { FaGithub, FaLinkedin, FaXTwitter } from "react-icons/fa6";
-import { Mail } from "lucide-react";
-
-const socials = [
-  { href: "https://github.com/yashrajpahwa", label: "GitHub", icon: FaGithub },
-  {
-    href: "https://linkedin.com/in/yashrajpahwa",
-    label: "LinkedIn",
-    icon: FaLinkedin,
-  },
-  {
-    href: "https://twitter.com/yashrajpahwa",
-    label: "Twitter",
-    icon: FaXTwitter,
-  },
-  { href: "mailto:pahwayashraj@gmail.com", label: "Email", icon: Mail },
-];
+import IconLink from "@/components/IconLink";
+import { socials } from "@/data/socials";
 
 export default function Home() {
   return (
@@ -33,18 +18,16 @@ export default function Home() {
         B.Eng. @ Thapar Institute of Engineering & Technology &middot; New Delhi
       </p>
 
-      <div className="flex items-center gap-1 -ml-2">
+      <div className="flex items-center -ml-2">
         {socials.map(({ href, label, icon: Icon }) => (
-          <a
+          <IconLink
             key={label}
             href={href}
-            target={href.startsWith("http") ? "_blank" : undefined}
-            rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
-            aria-label={label}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted transition-colors duration-150 ease-out hover:bg-accent hover:text-bg"
-          >
-            <Icon size={16} />
-          </a>
+            label={label}
+            icon={Icon}
+            size={16}
+            external={href.startsWith("http")}
+          />
         ))}
       </div>
 

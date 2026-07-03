@@ -1,14 +1,9 @@
+import { socials } from "@/data/socials";
+
 export const metadata = {
   title: "About",
   description: "About Yashraj Singh Pahwa.",
 };
-
-const socials = [
-  { href: "https://github.com/yashrajpahwa", label: "GitHub" },
-  { href: "https://linkedin.com/in/yashrajpahwa", label: "LinkedIn" },
-  { href: "https://twitter.com/yashrajpahwa", label: "Twitter" },
-  { href: "mailto:pahwayashraj@gmail.com", label: "Email" },
-];
 
 const skills = {
   Languages: ["JavaScript", "TypeScript", "Python", "C"],
@@ -40,9 +35,7 @@ export default function About() {
                 key={label}
                 href={href}
                 target={href.startsWith("http") ? "_blank" : undefined}
-                rel={
-                  href.startsWith("http") ? "noopener noreferrer" : undefined
-                }
+                rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
                 className="text-muted transition-colors duration-150 ease-out hover:text-accent w-fit"
               >
                 {label}

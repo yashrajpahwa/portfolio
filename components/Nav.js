@@ -31,7 +31,7 @@ export default function Nav() {
                   <Link
                     href={link.href}
                     className={`group relative py-1 transition-colors duration-150 ease-out ${
-                      active ? "text-accent" : "text-muted hover:text-text"
+                      active ? "text-accent" : "text-muted hover:text-text focus-visible:text-text"
                     }`}
                   >
                     {link.label}
@@ -39,7 +39,7 @@ export default function Nav() {
                       className={`absolute left-0 -bottom-px h-px bg-accent transition-transform duration-200 ease-out ${
                         active
                           ? "w-full scale-x-100"
-                          : "w-full scale-x-0 origin-left group-hover:scale-x-100"
+                          : "w-full scale-x-0 origin-left group-hover:scale-x-100 group-focus-visible:scale-x-100"
                       }`}
                     />
                   </Link>

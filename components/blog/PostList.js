@@ -1,13 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-
-function formatDate(date) {
-  return new Date(date).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
+import { formatDate } from "@/lib/utils";
 
 export default function PostList({ posts }) {
   return (

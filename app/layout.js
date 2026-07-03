@@ -36,9 +36,17 @@ export default function RootLayout({ children }) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-bg text-text">
+        <a
+          href="#main-content"
+          className="sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:top-3 focus-visible:left-3 focus-visible:z-[100] focus-visible:rounded-md focus-visible:bg-accent focus-visible:px-4 focus-visible:py-2 focus-visible:font-mono focus-visible:text-xs focus-visible:text-bg"
+        >
+          Skip to content
+        </a>
         <ThemeProvider>
           <Nav />
-          <main className="flex-1 w-full">{children}</main>
+          <main id="main-content" className="flex-1 w-full">
+            {children}
+          </main>
           <ConditionalFooter />
         </ThemeProvider>
       </body>
