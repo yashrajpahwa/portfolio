@@ -1,0 +1,34 @@
+---
+title: "The Ultimate JWT Authentication Strategy"
+date: "2025-05-01"
+excerpt: "A deep technical look at building a JWT authentication flow that's actually secure in production."
+tags: ["auth", "backend", "security"]
+hosted: true
+---
+
+Most JWT tutorials stop at "sign a token, send it back." That's the easy 20%
+of the problem. The hard part is everything after: rotation, revocation, and
+what happens when a token leaks.
+
+## Access tokens vs. refresh tokens
+
+Short-lived access tokens (5–15 minutes) limit the blast radius of a leaked
+token. Refresh tokens live longer but should be stored in an `httpOnly`,
+`Secure`, `SameSite=Strict` cookie — never in `localStorage`.
+
+## Rotation
+
+Every time a refresh token is used, issue a new one and invalidate the old
+one. If an old refresh token is presented again, treat it as a signal of
+compromise and revoke the entire token family.
+
+## Revocation
+
+Stateless JWTs can't be revoked by design — so keep a small denylist (token
+ID + expiry) in a fast store like Redis, checked only on sensitive
+operations, not every request.
+
+This is the shape of the strategy I've used across a few production
+services: short-lived access tokens, rotating refresh tokens in secure
+cookies, and a lightweight revocation list for the cases that actually
+matter.
