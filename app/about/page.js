@@ -1,8 +1,10 @@
+import Link from "next/link";
 import { socials } from "@/data/socials";
 
 export const metadata = {
   title: "About",
   description: "About Yashraj Singh Pahwa.",
+  alternates: { canonical: "/about" },
 };
 
 const skills = {
@@ -44,9 +46,9 @@ export default function About() {
           </div>
         </aside>
 
-        <div className="space-y-6 text-justify [hyphens:auto]">
+        <div className="space-y-6">
           <p className="text-muted leading-relaxed">
-            I'm an Electronics &amp; Computer Engineering student at Thapar
+            I&apos;m an Electronics &amp; Computer Engineering student at Thapar
             Institute of Engineering &amp; Technology, Patiala, with a focus on
             the systems layer of software — how things run, scale, and stay
             correct once real users touch them. I care about AI systems and the
@@ -64,22 +66,22 @@ export default function About() {
 
           <p className="text-muted leading-relaxed">
             Before Thapar Institute of Engineering & Technology, I studied at
-            Bluebells School. Since then I've spent time on independent projects
+            Bluebells School. Since then I&apos;ve spent time on independent projects
             — from kernel-level video drivers to competitive AI challenges —
             because building something end to end teaches you more than any
             course does.
           </p>
 
           <p className="text-muted leading-relaxed">
-            I write occasionally about what I'm learning — mostly backend
+            I write occasionally about what I&apos;m learning — mostly backend
             engineering, authentication, and AI tooling. You can find those
             posts on the{" "}
-            <a
+            <Link
               href="/blog"
               className="text-accent underline underline-offset-4 decoration-accent-dim transition-colors duration-150 ease-out hover:decoration-accent"
             >
               blog
-            </a>
+            </Link>
             .
           </p>
 
@@ -90,7 +92,7 @@ export default function About() {
             an open-source LMS, are two projects I actively maintain.
           </p>
 
-          <div className="pt-6 border-t border-border space-y-4 text-left">
+          <div className="pt-6 border-t border-border space-y-4">
             <p className="font-mono text-xs text-accent">skills</p>
             <div className="grid sm:grid-cols-2 gap-x-8 gap-y-4">
               {Object.entries(skills).map(([category, items]) => (

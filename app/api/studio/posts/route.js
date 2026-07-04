@@ -28,7 +28,8 @@ export async function POST(request) {
   }
 
   const body = await request.json();
-  const { slug, title, date, excerpt, tags, hosted, mediumUrl, content } = body;
+  const { slug, previousSlug, overwrite, title, date, excerpt, tags, hosted, mediumUrl, content } =
+    body;
 
   if (!slug || !SLUG_RE.test(slug)) {
     return NextResponse.json(
@@ -38,6 +39,17 @@ export async function POST(request) {
   }
   if (!title || !date) {
     return NextResponse.json({ error: "Title and date are required." }, { status: 400 });
+  }
+
+  const filePath = path.join(BLOG_DIR, `${slug}.mdx`);
+  const isRename = previousSlug && SLUG_RE.test(previousSlug) && previousSlug !== slug;
+
+  // Refuse to silently clobber an existing post the client isn't editing.
+  if (slug !== previousSlug && fs.existsSync(filePath) && !overwrite) {
+    return NextResponse.json(
+      { error: `${slug}.mdx already exists.`, code: "EXISTS" },
+      { status: 409 }
+    );
   }
 
   const frontmatter = {
@@ -50,7 +62,12 @@ export async function POST(request) {
   };
 
   const file = matter.stringify(content || "", frontmatter);
-  fs.writeFileSync(path.join(BLOG_DIR, `${slug}.mdx`), file, "utf-8");
+  fs.writeFileSync(filePath, file, "utf-8");
 
-  return NextResponse.json({ ok: true, slug });
+  if (isRename) {
+    const oldPath = path.join(BLOG_DIR, `${previousSlug}.mdx`);
+    if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+  }
+
+  return NextResponse.json({ ok: true, slug, renamedFrom: isRename ? previousSlug : undefined });
 }

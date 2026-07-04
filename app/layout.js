@@ -3,6 +3,7 @@ import "./globals.css";
 import Nav from "@/components/Nav";
 import ConditionalFooter from "@/components/ConditionalFooter";
 import ThemeProvider from "@/components/ThemeProvider";
+import { site } from "@/lib/site";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,16 +16,24 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  metadataBase: new URL("https://yashraj.dev"),
+  metadataBase: new URL(site.url),
   title: {
-    default: "Yashraj Singh Pahwa",
-    template: "%s · Yashraj Singh Pahwa",
+    default: site.name,
+    template: `%s · ${site.name}`,
   },
-  description: "Building systems. Thinking deeply.",
+  description: site.description,
+  alternates: {
+    types: { "application/rss+xml": `${site.url}/feed.xml` },
+  },
   openGraph: {
-    title: "Yashraj Singh Pahwa",
-    description: "Building systems. Thinking deeply.",
+    title: site.name,
+    description: site.description,
     type: "website",
+    siteName: site.name,
+  },
+  twitter: {
+    card: "summary_large_image",
+    creator: site.author.twitter,
   },
 };
 

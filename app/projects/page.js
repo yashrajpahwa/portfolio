@@ -4,6 +4,7 @@ import { projects } from "@/data/projects";
 export const metadata = {
   title: "Projects",
   description: "Projects by Yashraj Singh Pahwa.",
+  alternates: { canonical: "/projects" },
 };
 
 export default function Projects() {

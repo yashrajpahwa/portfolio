@@ -1,25 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MDXRemote } from "next-mdx-remote";
-import {
-  Plus,
-  Trash2,
-  Eye,
-  Pencil,
-  Bold,
-  Italic,
-  Link2,
-  Code,
-  Code2,
-  Heading2,
-  List,
-  ListOrdered,
-  Quote,
-  Undo2,
-  Redo2,
-} from "lucide-react";
-
+import readingTime from "reading-time";
+import { ArrowUpRight, Columns2, Eye, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import MarkdownEditor from "@/components/studio/MarkdownEditor";
+import PreviewPane from "@/components/studio/PreviewPane";
+import { formatDate } from "@/lib/utils";
 
 function slugify(text) {
   return text
@@ -44,28 +30,36 @@ function draftKey(slug) {
   return `studio-draft:${slug || "new"}`;
 }
 
+const modes = [
+  { id: "write", label: "write", icon: Pencil },
+  { id: "split", label: "split", icon: Columns2 },
+  { id: "preview", label: "preview", icon: Eye },
+];
+
+const inputClass =
+  "w-full bg-surface border border-border rounded-md px-3 py-2 text-sm outline-none focus:border-accent transition-colors duration-150 ease-out";
+
 export default function StudioEditor() {
   const [posts, setPosts] = useState([]);
   const [selectedSlug, setSelectedSlug] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [slugTouched, setSlugTouched] = useState(false);
-  const [tab, setTab] = useState("write");
-  const [previewSource, setPreviewSource] = useState(null);
-  const [previewError, setPreviewError] = useState(null);
+  const [mode, setMode] = useState("split");
+  const [filter, setFilter] = useState("");
   const [status, setStatus] = useState(null);
   const [modKey, setModKey] = useState("Ctrl");
-  const [historyState, setHistoryState] = useState({ canUndo: false, canRedo: false });
   const [pendingDraft, setPendingDraft] = useState(null);
-  const debounceRef = useRef(null);
-  const textareaRef = useRef(null);
-  const undoStackRef = useRef([]);
-  const redoStackRef = useRef([]);
-  const lastHistoryPushRef = useRef(0);
+
   const lastSavedFormRef = useRef(emptyForm);
   const draftSaveTimerRef = useRef(null);
+  const saveRef = useRef(() => {});
+  const isDirtyRef = useRef(false);
+
+  const isDirty = JSON.stringify(form) !== JSON.stringify(lastSavedFormRef.current);
+  isDirtyRef.current = isDirty;
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time client-only platform check, mirrors ThemeToggle's mount pattern
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time client-only platform check
     if (/Mac|iPhone|iPad/.test(navigator.platform)) setModKey("⌘");
   }, []);
 
@@ -90,83 +84,36 @@ export default function StudioEditor() {
   }, [form, selectedSlug]);
 
   useEffect(() => {
-    if (tab !== "preview") return;
-    clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      fetchPreview(form.content);
-    }, 300);
-    return () => clearTimeout(debounceRef.current);
-  }, [form.content, tab]);
-
-  const saveRef = useRef(() => {});
-
-  useEffect(() => {
     function handleGlobalSave(e) {
-      const isSave = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s";
-      if (!isSave) return;
-      e.preventDefault();
-      saveRef.current();
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        saveRef.current();
+      }
+    }
+    function handleBeforeUnload(e) {
+      if (isDirtyRef.current) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
     }
     window.addEventListener("keydown", handleGlobalSave);
-    return () => window.removeEventListener("keydown", handleGlobalSave);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("keydown", handleGlobalSave);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
   }, []);
 
-  function syncHistoryState() {
-    setHistoryState({
-      canUndo: undoStackRef.current.length > 0,
-      canRedo: redoStackRef.current.length > 0,
-    });
-  }
-
-  function pushHistory(prevContent, { immediate = false } = {}) {
-    const now = Date.now();
-    if (immediate || now - lastHistoryPushRef.current > 600) {
-      undoStackRef.current.push(prevContent);
-      if (undoStackRef.current.length > 100) undoStackRef.current.shift();
-      redoStackRef.current = [];
-    }
-    lastHistoryPushRef.current = now;
-    syncHistoryState();
-  }
-
-  function setContent(next, opts) {
-    pushHistory(form.content, opts);
-    updateField("content", next);
-  }
-
-  function undo() {
-    if (undoStackRef.current.length === 0) return;
-    const prev = undoStackRef.current.pop();
-    redoStackRef.current.push(form.content);
-    updateField("content", prev);
-    syncHistoryState();
-  }
-
-  function redo() {
-    if (redoStackRef.current.length === 0) return;
-    const next = redoStackRef.current.pop();
-    undoStackRef.current.push(form.content);
-    updateField("content", next);
-    syncHistoryState();
-  }
-
-  function resetHistory() {
-    undoStackRef.current = [];
-    redoStackRef.current = [];
-    syncHistoryState();
-  }
-
   function checkForDraft(slug, baseForm) {
-    const key = draftKey(slug);
-    const raw = window.localStorage.getItem(key);
+    const raw = window.localStorage.getItem(draftKey(slug));
     if (!raw) return;
     try {
       const parsed = JSON.parse(raw);
       if (JSON.stringify(parsed.form) !== JSON.stringify(baseForm)) {
-        setPendingDraft({ key, ...parsed });
+        setPendingDraft({ key: draftKey(slug), ...parsed });
       }
     } catch {
-      window.localStorage.removeItem(key);
+      window.localStorage.removeItem(draftKey(slug));
     }
   }
 
@@ -174,7 +121,6 @@ export default function StudioEditor() {
     if (!pendingDraft) return;
     setForm(pendingDraft.form);
     setSlugTouched(true);
-    resetHistory();
     setPendingDraft(null);
   }
 
@@ -184,110 +130,14 @@ export default function StudioEditor() {
     setPendingDraft(null);
   }
 
-  function wrapSelection(before, after = before, placeholder = "") {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const { selectionStart, selectionEnd, value } = textarea;
-    const selected = value.slice(selectionStart, selectionEnd) || placeholder;
-    const next =
-      value.slice(0, selectionStart) + before + selected + after + value.slice(selectionEnd);
-    setContent(next, { immediate: true });
-    requestAnimationFrame(() => {
-      textarea.focus();
-      const cursor = selectionStart + before.length;
-      textarea.setSelectionRange(cursor, cursor + selected.length);
-    });
-  }
-
-  function prefixLine(prefix) {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const { selectionStart, value } = textarea;
-    const lineStart = value.lastIndexOf("\n", selectionStart - 1) + 1;
-    const next = value.slice(0, lineStart) + prefix + value.slice(lineStart);
-    setContent(next, { immediate: true });
-    requestAnimationFrame(() => {
-      textarea.focus();
-      const cursor = selectionStart + prefix.length;
-      textarea.setSelectionRange(cursor, cursor);
-    });
-  }
-
-  function handleEditorKeyDown(e) {
-    const mod = e.metaKey || e.ctrlKey;
-    if (!mod) return;
-    const key = e.key.toLowerCase();
-
-    if (key === "z" && !e.shiftKey) {
-      e.preventDefault();
-      undo();
-    } else if (key === "z" && e.shiftKey) {
-      e.preventDefault();
-      redo();
-    } else if (key === "y") {
-      e.preventDefault();
-      redo();
-    } else if (key === "b") {
-      e.preventDefault();
-      wrapSelection("**", "**", "bold text");
-    } else if (key === "i") {
-      e.preventDefault();
-      wrapSelection("*", "*", "italic text");
-    } else if (key === "k") {
-      e.preventDefault();
-      wrapSelection("[", "](https://)", "link text");
-    } else if (key === "e") {
-      e.preventDefault();
-      wrapSelection("`", "`", "code");
-    } else if (key === "." && e.shiftKey) {
-      e.preventDefault();
-      prefixLine("> ");
-    } else if (key === "8" && e.shiftKey) {
-      e.preventDefault();
-      prefixLine("- ");
-    } else if (key === "7" && e.shiftKey) {
-      e.preventDefault();
-      prefixLine("1. ");
-    }
-  }
-
-  const toolbarActions = [
-    { label: "Undo", shortcut: `${modKey}+Z`, icon: Undo2, run: undo, disabled: !historyState.canUndo },
-    { label: "Redo", shortcut: `${modKey}+Shift+Z`, icon: Redo2, run: redo, disabled: !historyState.canRedo },
-    { label: "Bold", shortcut: `${modKey}+B`, icon: Bold, run: () => wrapSelection("**", "**", "bold text") },
-    { label: "Italic", shortcut: `${modKey}+I`, icon: Italic, run: () => wrapSelection("*", "*", "italic text") },
-    { label: "Link", shortcut: `${modKey}+K`, icon: Link2, run: () => wrapSelection("[", "](https://)", "link text") },
-    { label: "Inline code", shortcut: `${modKey}+E`, icon: Code, run: () => wrapSelection("`", "`", "code") },
-    { label: "Code block", icon: Code2, run: () => wrapSelection("```\n", "\n```", "code") },
-    { label: "Heading", icon: Heading2, run: () => prefixLine("## ") },
-    { label: "Bullet list", shortcut: `${modKey}+Shift+8`, icon: List, run: () => prefixLine("- ") },
-    { label: "Numbered list", shortcut: `${modKey}+Shift+7`, icon: ListOrdered, run: () => prefixLine("1. ") },
-    { label: "Quote", shortcut: `${modKey}+Shift+.`, icon: Quote, run: () => prefixLine("> ") },
-  ];
-
   async function loadPosts() {
     const res = await fetch("/api/studio/posts");
     const data = await res.json();
     setPosts(data.posts || []);
   }
 
-  async function fetchPreview(content) {
-    setPreviewError(null);
-    try {
-      const res = await fetch("/api/studio/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Preview failed");
-      setPreviewSource(data.mdxSource);
-    } catch (err) {
-      setPreviewError(err.message);
-    }
-  }
-
   function selectPost(post) {
+    if (isDirtyRef.current && !window.confirm("Discard unsaved changes?")) return;
     const loaded = {
       slug: post.slug,
       title: post.title || "",
@@ -302,20 +152,17 @@ export default function StudioEditor() {
     setSlugTouched(true);
     setForm(loaded);
     setStatus(null);
-    setTab("write");
-    resetHistory();
     lastSavedFormRef.current = loaded;
     setPendingDraft(null);
     checkForDraft(post.slug, loaded);
   }
 
   function newPost() {
+    if (isDirtyRef.current && !window.confirm("Discard unsaved changes?")) return;
     setSelectedSlug(null);
     setSlugTouched(false);
     setForm(emptyForm);
     setStatus(null);
-    setTab("write");
-    resetHistory();
     lastSavedFormRef.current = emptyForm;
     setPendingDraft(null);
     checkForDraft(null, emptyForm);
@@ -335,13 +182,15 @@ export default function StudioEditor() {
 
   saveRef.current = save;
 
-  async function save() {
+  async function save(overwrite = false) {
     setStatus(null);
     const payload = {
       ...form,
+      previousSlug: selectedSlug,
+      overwrite,
       tags: form.tags
         .split(",")
-        .map((t) => t.trim())
+        .map((tag) => tag.trim())
         .filter(Boolean),
     };
 
@@ -352,15 +201,29 @@ export default function StudioEditor() {
     });
     const data = await res.json();
 
+    if (res.status === 409 && data.code === "EXISTS") {
+      if (window.confirm(`${form.slug}.mdx already exists. Overwrite it?`)) {
+        return save(true);
+      }
+      setStatus({ type: "error", message: "Save cancelled — change the slug to keep both." });
+      return;
+    }
+
     if (!res.ok) {
       setStatus({ type: "error", message: data.error || "Save failed." });
       return;
     }
 
     window.localStorage.removeItem(draftKey(selectedSlug));
+    window.localStorage.removeItem(draftKey(data.slug));
     lastSavedFormRef.current = form;
-    setStatus({ type: "ok", message: `Saved content/blog/${data.slug}.mdx` });
     setSelectedSlug(data.slug);
+    setStatus({
+      type: "ok",
+      message: data.renamedFrom
+        ? `Saved and renamed ${data.renamedFrom}.mdx → ${data.slug}.mdx`
+        : `Saved content/blog/${data.slug}.mdx`,
+    });
     await loadPosts();
   }
 
@@ -370,20 +233,36 @@ export default function StudioEditor() {
 
     await fetch(`/api/studio/posts/${selectedSlug}`, { method: "DELETE" });
     window.localStorage.removeItem(draftKey(selectedSlug));
+    setSelectedSlug(null);
+    setSlugTouched(false);
+    setForm(emptyForm);
+    lastSavedFormRef.current = emptyForm;
     setStatus({ type: "ok", message: `Deleted ${selectedSlug}.mdx` });
-    newPost();
     await loadPosts();
   }
 
-  const sortedPosts = useMemo(
-    () => [...posts].sort((a, b) => new Date(b.date) - new Date(a.date)),
-    [posts]
-  );
+  const sortedPosts = useMemo(() => {
+    const query = filter.trim().toLowerCase();
+    return [...posts]
+      .filter(
+        (post) =>
+          !query ||
+          (post.title || "").toLowerCase().includes(query) ||
+          post.slug.includes(query)
+      )
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [posts, filter]);
 
-  const isDirty = JSON.stringify(form) !== JSON.stringify(lastSavedFormRef.current);
+  const stats = useMemo(() => {
+    const words = form.content.trim() ? form.content.trim().split(/\s+/).length : 0;
+    return { words, readingTime: words > 0 ? readingTime(form.content).text : null };
+  }, [form.content]);
+
+  const showEditor = form.hosted && (mode === "write" || mode === "split");
+  const showPreview = form.hosted && (mode === "preview" || mode === "split");
 
   return (
-    <div className="max-w-6xl mx-auto px-6 md:px-8 py-10">
+    <div className="max-w-7xl mx-auto px-6 md:px-8 py-10">
       <div className="flex items-baseline justify-between mb-8">
         <div>
           <h1 className="text-xl font-medium tracking-tight">Studio</h1>
@@ -425,42 +304,72 @@ export default function StudioEditor() {
         </div>
       )}
 
-      <div className="grid md:grid-cols-[200px_1fr] gap-8">
-        <aside className="space-y-1 md:border-r md:border-border md:pr-6">
-          {sortedPosts.map((post) => (
-            <button
-              key={post.slug}
-              type="button"
-              onClick={() => selectPost(post)}
-              aria-current={selectedSlug === post.slug ? "true" : undefined}
-              className={`block w-full text-left py-1.5 text-sm transition-colors duration-150 ease-out ${
-                selectedSlug === post.slug ? "text-accent" : "text-muted hover:text-text"
-              }`}
-            >
-              {post.title || post.slug}
-            </button>
-          ))}
-          {sortedPosts.length === 0 && (
-            <p className="font-mono text-xs text-muted">No posts yet.</p>
-          )}
+      <div className="grid md:grid-cols-[220px_1fr] gap-8">
+        <aside className="md:border-r md:border-border md:pr-6">
+          <label className="relative block mb-3">
+            <Search
+              size={13}
+              strokeWidth={1.5}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"
+              aria-hidden="true"
+            />
+            <input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="filter posts"
+              aria-label="Filter posts"
+              className="w-full bg-surface border border-border rounded-md pl-8 pr-3 py-1.5 font-mono text-xs outline-none focus:border-accent transition-colors duration-150 ease-out"
+            />
+          </label>
+
+          <div className="space-y-0.5">
+            {sortedPosts.map((post) => (
+              <button
+                key={post.slug}
+                type="button"
+                onClick={() => selectPost(post)}
+                aria-current={selectedSlug === post.slug ? "true" : undefined}
+                className={`block w-full text-left py-1.5 transition-colors duration-150 ease-out ${
+                  selectedSlug === post.slug ? "text-accent" : "text-muted hover:text-text"
+                }`}
+              >
+                <span className="block text-sm truncate">
+                  {post.title || post.slug}
+                  {post.hosted === false && (
+                    <ArrowUpRight size={11} strokeWidth={1.5} className="inline ml-1 align-baseline" />
+                  )}
+                </span>
+                <span className="block font-mono text-[11px] opacity-70">
+                  {post.date ? formatDate(post.date) : "no date"}
+                </span>
+              </button>
+            ))}
+            {sortedPosts.length === 0 && (
+              <p className="font-mono text-xs text-muted">
+                {posts.length === 0 ? "No posts yet." : "No matches."}
+              </p>
+            )}
+          </div>
         </aside>
 
-        <div className="space-y-6">
+        <div className="space-y-6 min-w-0">
           <div className="grid sm:grid-cols-2 gap-4">
             <label className="block space-y-1">
               <span className="font-mono text-xs text-muted">title</span>
               <input
                 value={form.title}
                 onChange={(e) => updateField("title", e.target.value)}
-                className="w-full bg-surface border border-border rounded-md px-3 py-2 text-sm outline-none focus:border-accent transition-colors duration-150 ease-out"
+                className={inputClass}
               />
             </label>
             <label className="block space-y-1">
-              <span className="font-mono text-xs text-muted">slug</span>
+              <span className="font-mono text-xs text-muted">
+                slug{selectedSlug && form.slug !== selectedSlug ? " (will rename file)" : ""}
+              </span>
               <input
                 value={form.slug}
                 onChange={(e) => updateField("slug", slugify(e.target.value))}
-                className="w-full bg-surface border border-border rounded-md px-3 py-2 text-sm font-mono outline-none focus:border-accent transition-colors duration-150 ease-out"
+                className={`${inputClass} font-mono`}
               />
             </label>
             <label className="block space-y-1">
@@ -469,7 +378,7 @@ export default function StudioEditor() {
                 type="date"
                 value={form.date}
                 onChange={(e) => updateField("date", e.target.value)}
-                className="w-full bg-surface border border-border rounded-md px-3 py-2 text-sm font-mono outline-none focus:border-accent transition-colors duration-150 ease-out"
+                className={`${inputClass} font-mono`}
               />
             </label>
             <label className="block space-y-1">
@@ -477,20 +386,21 @@ export default function StudioEditor() {
               <input
                 value={form.tags}
                 onChange={(e) => updateField("tags", e.target.value)}
-                className="w-full bg-surface border border-border rounded-md px-3 py-2 text-sm outline-none focus:border-accent transition-colors duration-150 ease-out"
+                className={inputClass}
               />
             </label>
             <label className="block space-y-1 sm:col-span-2">
               <span className="font-mono text-xs text-muted">excerpt</span>
-              <input
+              <textarea
                 value={form.excerpt}
                 onChange={(e) => updateField("excerpt", e.target.value)}
-                className="w-full bg-surface border border-border rounded-md px-3 py-2 text-sm outline-none focus:border-accent transition-colors duration-150 ease-out"
+                rows={2}
+                className={`${inputClass} resize-y`}
               />
             </label>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <label className="flex items-center gap-2 font-mono text-xs text-muted">
               <input
                 type="checkbox"
@@ -505,108 +415,86 @@ export default function StudioEditor() {
                 placeholder="https://medium.com/..."
                 value={form.mediumUrl}
                 onChange={(e) => updateField("mediumUrl", e.target.value)}
-                className="flex-1 bg-surface border border-border rounded-md px-3 py-2 text-sm font-mono outline-none focus:border-accent transition-colors duration-150 ease-out"
+                aria-label="Medium URL"
+                className={`${inputClass} flex-1 font-mono`}
               />
+            )}
+            {form.hosted && (
+              <div
+                role="tablist"
+                aria-label="Editor mode"
+                className="ml-auto flex items-center rounded-md border border-border overflow-hidden"
+              >
+                {modes.map(({ id, label, icon: Icon }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="tab"
+                    aria-selected={mode === id}
+                    onClick={() => setMode(id)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 font-mono text-xs transition-colors duration-150 ease-out ${
+                      mode === id ? "bg-surface text-accent" : "text-muted hover:text-text"
+                    }`}
+                  >
+                    <Icon size={12} strokeWidth={1.5} /> {label}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
 
           {form.hosted && (
-            <div>
-              <div
-                className="flex items-center gap-1 border-b border-border mb-3"
-                role="tablist"
-                aria-label="Editor mode"
-              >
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === "write"}
-                  onClick={() => setTab("write")}
-                  className={`inline-flex items-center gap-1.5 px-3 py-2 font-mono text-xs -mb-px border-b transition-colors duration-150 ease-out ${
-                    tab === "write" ? "text-accent border-accent" : "text-muted border-transparent hover:text-text"
-                  }`}
-                >
-                  <Pencil size={12} strokeWidth={1.5} /> write
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === "preview"}
-                  onClick={() => setTab("preview")}
-                  className={`inline-flex items-center gap-1.5 px-3 py-2 font-mono text-xs -mb-px border-b transition-colors duration-150 ease-out ${
-                    tab === "preview" ? "text-accent border-accent" : "text-muted border-transparent hover:text-text"
-                  }`}
-                >
-                  <Eye size={12} strokeWidth={1.5} /> preview
-                </button>
-              </div>
-
-              {tab === "write" ? (
-                <div className="border border-border rounded-md overflow-hidden focus-within:border-accent transition-colors duration-150 ease-out">
-                  <div
-                    role="toolbar"
-                    aria-label="Formatting"
-                    className="flex items-center gap-0.5 border-b border-border bg-surface px-1.5 py-1"
-                  >
-                    {toolbarActions.map(({ label, shortcut, icon: Icon, run, disabled }, index) => (
-                      <span key={label} className="flex items-center">
-                        {(index === 2 || index === 6) && (
-                          <span className="mx-1 h-4 w-px bg-border" aria-hidden="true" />
-                        )}
-                        <button
-                          type="button"
-                          onClick={run}
-                          disabled={disabled}
-                          aria-label={shortcut ? `${label} (${shortcut})` : label}
-                          title={shortcut ? `${label} (${shortcut})` : label}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded text-muted transition-colors duration-150 ease-out hover:text-accent hover:bg-bg disabled:opacity-30 disabled:hover:text-muted disabled:hover:bg-transparent disabled:cursor-not-allowed"
-                        >
-                          <Icon size={14} strokeWidth={1.5} />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                  <textarea
-                    ref={textareaRef}
-                    value={form.content}
-                    onChange={(e) => setContent(e.target.value)}
-                    onKeyDown={handleEditorKeyDown}
-                    rows={20}
-                    spellCheck={false}
-                    aria-label="Post content (Markdown)"
-                    className="w-full bg-surface px-3 py-3 text-sm font-mono leading-relaxed outline-none resize-y"
-                  />
-                </div>
-              ) : (
-                <div className="border border-border rounded-md px-4 py-4 min-h-[20rem]">
-                  {previewError && <p className="text-sm text-red-400">{previewError}</p>}
-                  {!previewError && previewSource && (
-                    <div className="prose-blog max-w-[65ch]">
-                      <MDXRemote {...previewSource} />
-                    </div>
-                  )}
-                </div>
+            <div className={mode === "split" ? "grid lg:grid-cols-2 gap-4 items-start" : ""}>
+              {showEditor && (
+                <MarkdownEditor
+                  key={selectedSlug || "new"}
+                  value={form.content}
+                  onChange={(value) => updateField("content", value)}
+                  onSave={() => saveRef.current()}
+                  onStatus={setStatus}
+                  modKey={modKey}
+                />
+              )}
+              {showPreview && (
+                <PreviewPane
+                  title={form.title}
+                  date={form.date}
+                  readingTimeText={stats.readingTime}
+                  content={form.content}
+                />
               )}
             </div>
           )}
 
-          <div className="flex items-center gap-4 pt-2">
+          <div className="flex flex-wrap items-center gap-4 pt-2">
             <button
               type="button"
-              onClick={save}
+              onClick={() => save()}
               title={`Save (${modKey}+S)`}
               className="font-mono text-xs bg-accent text-bg px-4 py-2 rounded-md transition-opacity duration-150 ease-out hover:opacity-90"
             >
               save <span className="opacity-70">({modKey}+S)</span>
             </button>
             {selectedSlug && (
-              <button
-                type="button"
-                onClick={remove}
-                className="inline-flex items-center gap-1.5 font-mono text-xs text-muted transition-colors duration-150 ease-out hover:text-accent"
-              >
-                <Trash2 size={12} strokeWidth={1.5} /> delete
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={remove}
+                  className="inline-flex items-center gap-1.5 font-mono text-xs text-muted transition-colors duration-150 ease-out hover:text-accent"
+                >
+                  <Trash2 size={12} strokeWidth={1.5} /> delete
+                </button>
+                {form.hosted && (
+                  <a
+                    href={`/blog/${selectedSlug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 font-mono text-xs text-muted transition-colors duration-150 ease-out hover:text-accent"
+                  >
+                    view post <ArrowUpRight size={11} strokeWidth={1.5} />
+                  </a>
+                )}
+              </>
             )}
             {isDirty && !status && (
               <span className="inline-flex items-center gap-1.5 font-mono text-xs text-muted">
@@ -621,6 +509,11 @@ export default function StudioEditor() {
                 className={`font-mono text-xs ${status.type === "error" ? "text-red-400" : "text-muted"}`}
               >
                 {status.message}
+              </span>
+            )}
+            {form.hosted && stats.words > 0 && (
+              <span className="ml-auto font-mono text-xs text-muted">
+                {stats.words} words &middot; {stats.readingTime}
               </span>
             )}
           </div>
